@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1a0a2e">
+<title>Zlap Serduszko!</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html {
+    height: 100%;
+    overflow: hidden;
+    /* prevent iOS bounce/pull-to-refresh */
+    overscroll-behavior: none;
+    position: fixed;
+    width: 100%;
+  }
+
+  body {
+    overflow: hidden;
+    background: linear-gradient(135deg, #1a0a2e, #2d1b69, #1a0a2e);
+    height: 100%;
+    width: 100%;
+    font-family: -apple-system, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+    touch-action: none;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    /* safe area padding for notch devices */
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    position: fixed;
+    inset: 0;
+  }
+
+  /* floating sparkles background */
+  .sparkle {
+    position: fixed;
+    width: 4px; height: 4px;
+    background: rgba(255,255,255,0.5);
+    border-radius: 50%;
+    animation: float linear infinite;
+    pointer-events: none;
+  }
+  @keyframes float {
+    0%   { transform: translateY(100vh) scale(0); opacity: 0; }
+    10%  { opacity: 1; }
+    90%  { opacity: 1; }
+    100% { transform: translateY(-10vh) scale(1); opacity: 0; }
+  }
+
+  /* start screen */
+  #start-screen {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 100;
+    background: radial-gradient(ellipse at center, rgba(180,40,80,0.3), transparent 70%);
+  }
+  .start-heart-icon {
+    font-size: 80px;
+    margin-bottom: 16px;
+    animation: pulse-title 2s ease-in-out infinite;
+    filter: drop-shadow(0 0 30px rgba(255,0,60,0.7));
+  }
+  #start-screen h1 {
+    font-size: clamp(2rem, 9vw, 4rem);
+    color: #ff4d6d;
+    text-shadow: 0 0 30px rgba(255,77,109,0.6);
+    margin-bottom: 12px;
+  }
+  #start-screen p {
+    color: rgba(255,255,255,0.75);
+    font-size: clamp(1rem, 4vw, 1.3rem);
+    margin-bottom: 36px;
+    text-align: center;
+    padding: 0 30px;
+    line-height: 1.6;
+  }
+  #start-btn {
+    padding: 18px 56px;
+    font-size: 1.4rem;
+    font-weight: 600;
+    background: linear-gradient(135deg, #ff4d6d, #c9184a);
+    color: #fff;
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    box-shadow: 0 0 40px rgba(255,77,109,0.5);
+    /* bigger touch target */
+    min-height: 56px;
+    min-width: 200px;
+  }
+  #start-btn:active { transform: scale(0.95); }
+  @keyframes pulse-title {
+    0%,100% { transform: scale(1); }
+    50% { transform: scale(1.12); }
+  }
+
+  /* game area */
+  #game { display: none; position: fixed; inset: 0; }
+
+  /* score */
+  #score-display {
+    position: fixed;
+    top: calc(16px + env(safe-area-inset-top, 0px));
+    left: 50%;
+    transform: translateX(-50%);
+    color: #fff; font-size: 1.2rem;
+    font-weight: 600;
+    background: rgba(0,0,0,0.4);
+    padding: 10px 24px; border-radius: 30px;
+    z-index: 50;
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+  }
+
+  /* hint text */
+  #hint {
+    position: fixed;
+    bottom: calc(30px + env(safe-area-inset-bottom, 0px));
+    left: 50%; transform: translateX(-50%);
+    color: rgba(255,255,255,0.45);
+    font-size: 0.85rem;
+    z-index: 50;
+    text-align: center;
+    animation: hint-fade 4s ease forwards;
+    pointer-events: none;
+  }
+  @keyframes hint-fade {
+    0%,60% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  /* small running hearts — BIG touch target for mobile */
+  .heart {
+    position: absolute;
+    z-index: 10;
+    cursor: pointer;
+    /* the visible emoji */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* large touch target: 70x70 minimum */
+    width: 70px;
+    height: 70px;
+    font-size: 44px;
+    filter: drop-shadow(0 0 10px rgba(255,77,109,0.7));
+    animation: wobble 0.6s ease-in-out infinite alternate;
+  }
+  @keyframes wobble {
+    0%   { transform: rotate(-8deg) scale(1); }
+    100% { transform: rotate(8deg) scale(1.08); }
+  }
+
+  /* tap ripple */
+  .tap-ripple {
+    position: fixed;
+    width: 60px; height: 60px;
+    border: 2px solid rgba(255,77,109,0.5);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 5;
+    animation: ripple-out 0.5s ease-out forwards;
+    transform: translate(-50%, -50%);
+  }
+  @keyframes ripple-out {
+    0%   { opacity: 0.8; width: 20px; height: 20px; }
+    100% { opacity: 0; width: 100px; height: 100px; }
+  }
+
+  /* big explosion heart overlay */
+  #explosion-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    z-index: 200;
+    align-items: center; justify-content: center;
+    flex-direction: column;
+    background: rgba(0,0,0,0.0);
+  }
+  #explosion-overlay.active {
+    display: flex;
+    animation: overlay-bg 2.5s ease forwards;
+  }
+  @keyframes overlay-bg {
+    0%   { background: rgba(0,0,0,0); }
+    30%  { background: rgba(60,0,20,0.7); }
+    100% { background: rgba(60,0,20,0.85); }
+  }
+
+  .big-heart {
+    font-size: 20px;
+    opacity: 0;
+    animation: explode-heart 1.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    filter: drop-shadow(0 0 60px rgba(255,0,60,0.9));
+  }
+  @keyframes explode-heart {
+    0%   { font-size: 20px; opacity: 0; transform: scale(0.1) rotate(-10deg); }
+    15%  { opacity: 1; }
+    50%  { font-size: min(55vw, 300px); transform: scale(1.15) rotate(5deg); }
+    70%  { transform: scale(0.95) rotate(-3deg); }
+    85%  { transform: scale(1.05) rotate(1deg); }
+    100% { font-size: min(55vw, 300px); transform: scale(1) rotate(0deg); opacity: 1; }
+  }
+
+  /* pulsing glow after explosion */
+  .big-heart-pulse {
+    animation: heart-glow 1.5s ease-in-out infinite 1.8s;
+  }
+  @keyframes heart-glow {
+    0%,100% { filter: drop-shadow(0 0 40px rgba(255,0,60,0.8)); transform: scale(1); }
+    50%     { filter: drop-shadow(0 0 80px rgba(255,0,60,1)); transform: scale(1.06); }
+  }
+
+  .congrats-text {
+    color: #fff;
+    font-size: clamp(1.3rem, 5.5vw, 2.2rem);
+    font-weight: 600;
+    margin-top: 24px;
+    opacity: 0;
+    animation: fade-up 1s ease 1.2s forwards;
+    text-align: center;
+    padding: 0 24px;
+    text-shadow: 0 0 20px rgba(255,77,109,0.8);
+    line-height: 1.5;
+  }
+
+  .sub-text {
+    color: rgba(255,255,255,0.7);
+    font-size: clamp(0.9rem, 3.5vw, 1.1rem);
+    margin-top: 8px;
+    opacity: 0;
+    animation: fade-up 1s ease 1.6s forwards;
+    text-align: center;
+  }
+
+  @keyframes fade-up {
+    0%   { opacity: 0; transform: translateY(20px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+
+  .play-again-btn {
+    margin-top: 28px;
+    padding: 16px 44px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    background: linear-gradient(135deg, #ff4d6d, #c9184a);
+    color: #fff;
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    opacity: 0;
+    animation: fade-up 0.8s ease 2.2s forwards;
+    box-shadow: 0 0 30px rgba(255,77,109,0.4);
+    min-height: 52px;
+    min-width: 180px;
+  }
+  .play-again-btn:active { transform: scale(0.95); }
+
+  /* particle burst on catch */
+  .particle {
+    position: fixed;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 150;
+    animation: burst 0.8s ease-out forwards;
+  }
+  @keyframes burst {
+    0%   { opacity: 1; transform: translate(0,0) scale(1); }
+    100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0); }
+  }
+
+  /* mini hearts burst */
+  .mini-heart-particle {
+    position: fixed;
+    pointer-events: none;
+    z-index: 150;
+    font-size: 20px;
+    animation: mini-burst 1s ease-out forwards;
+  }
+  @keyframes mini-burst {
+    0%   { opacity: 1; transform: translate(0,0) scale(1) rotate(0deg); }
+    100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.3) rotate(var(--rot)); }
+  }
+
+  /* trail particle */
+  .trail {
+    position: absolute;
+    width: 6px; height: 6px;
+    background: rgba(255,77,109,0.5);
+    border-radius: 50%;
+    pointer-events: none;
+    animation: trail-fade 0.5s ease-out forwards;
+  }
+  @keyframes trail-fade {
+    0%   { opacity: 0.6; transform: scale(1); }
+    100% { opacity: 0; transform: scale(0); }
+  }
+
+  /* score pop animation */
+  .score-pop {
+    animation: pop 0.3s ease;
+  }
+  @keyframes pop {
+    0%   { transform: translateX(-50%) scale(1); }
+    50%  { transform: translateX(-50%) scale(1.25); }
+    100% { transform: translateX(-50%) scale(1); }
+  }
+
+  /* near-miss flash on heart */
+  .heart-dodge {
+    animation: dodge-flash 0.3s ease !important;
+  }
+  @keyframes dodge-flash {
+    0%   { filter: drop-shadow(0 0 10px rgba(255,77,109,0.7)); }
+    50%  { filter: drop-shadow(0 0 25px rgba(255,255,100,0.9)) brightness(1.4); }
+    100% { filter: drop-shadow(0 0 10px rgba(255,77,109,0.7)); }
+  }
+</style>
+</head>
+<body>
+
+<!-- Background sparkles -->
+<script>
+  for (let i = 0; i < 25; i++) {
+    const s = document.createElement('div');
+    s.className = 'sparkle';
+    s.style.left = Math.random() * 100 + 'vw';
+    s.style.animationDuration = (4 + Math.random() * 6) + 's';
+    s.style.animationDelay = (Math.random() * 8) + 's';
+    s.style.width = s.style.height = (2 + Math.random() * 4) + 'px';
+    document.body.appendChild(s);
+  }
+</script>
+
+<!-- Start screen -->
+<div id="start-screen">
+  <div class="start-heart-icon">&hearts;&#65039;</div>
+  <h1>Zlap Serduszko!</h1>
+  <p>Serduszka uciekaja!<br>Tapnij w nie, zeby zlapac.<br>Zlapiesz 5 i stanie sie cos magicznego!</p>
+  <button id="start-btn">Graj!</button>
+</div>
+
+<!-- Game -->
+<div id="game">
+  <div id="score-display">Zlapane: <span id="score">0</span> / 5</div>
+  <div id="hint">Tapnij w serduszko!</div>
+</div>
+
+<!-- Explosion overlay -->
+<div id="explosion-overlay">
+  <div class="big-heart big-heart-pulse">&#10084;&#65039;</div>
+  <div class="congrats-text">Zlapales wszystkie serduszka!</div>
+  <div class="sub-text">Jestes niesamowity/a!</div>
+  <button class="play-again-btn" onclick="resetGame()">Zagraj jeszcze raz</button>
+</div>
+
+<script>
+  // prevent all iOS scrolling / bouncing / zooming
+  document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+  document.addEventListener('gesturestart', e => e.preventDefault());
+  document.addEventListener('gesturechange', e => e.preventDefault());
+  document.addEventListener('gestureend', e => e.preventDefault());
+
+  const CATCH_GOAL = 5;
+  const MAX_HEARTS = 3;
+  const HEART_EMOJIS = ['\u2764\uFE0F', '\uD83E\uDE77', '\uD83D\uDC95', '\uD83D\uDC96', '\uD83D\uDC97', '\uD83D\uDC93'];
+
+  let score = 0;
+  let hearts = [];
+  let animFrameId;
+  let gameRunning = false;
+  // track where user last tapped — hearts flee from this spot
+  let lastTapX = -1000, lastTapY = -1000;
+  let lastTapTime = 0;
+
+  const startScreen = document.getElementById('start-screen');
+  const gameEl = document.getElementById('game');
+  const scoreEl = document.getElementById('score');
+  const scoreDisplay = document.getElementById('score-display');
+  const overlay = document.getElementById('explosion-overlay');
+
+  document.getElementById('start-btn').addEventListener('touchend', (e) => {
+    e.preventDefault();
+    startGame();
+  });
+  document.getElementById('start-btn').addEventListener('click', startGame);
+
+  // track taps on the game area for flee mechanic
+  gameEl.addEventListener('touchstart', (e) => {
+    if (!gameRunning) return;
+    const touch = e.touches[0];
+    lastTapX = touch.clientX;
+    lastTapY = touch.clientY;
+    lastTapTime = Date.now();
+
+    // show tap ripple
+    showTapRipple(lastTapX, lastTapY);
+  }, { passive: true });
+
+  // also track mouse clicks (for desktop testing)
+  gameEl.addEventListener('mousedown', (e) => {
+    if (!gameRunning) return;
+    lastTapX = e.clientX;
+    lastTapY = e.clientY;
+    lastTapTime = Date.now();
+    showTapRipple(lastTapX, lastTapY);
+  });
+
+  function showTapRipple(x, y) {
+    const r = document.createElement('div');
+    r.className = 'tap-ripple';
+    r.style.left = x + 'px';
+    r.style.top = y + 'px';
+    document.body.appendChild(r);
+    setTimeout(() => r.remove(), 500);
+  }
+
+  function startGame() {
+    if (gameRunning) return;
+    startScreen.style.display = 'none';
+    gameEl.style.display = 'block';
+    overlay.classList.remove('active');
+    overlay.style.display = 'none';
+    score = 0;
+    scoreEl.textContent = '0';
+    gameRunning = true;
+    hearts = [];
+    lastTapX = -1000;
+    lastTapY = -1000;
+
+    // re-create hint
+    const oldHint = document.getElementById('hint');
+    if (oldHint) oldHint.remove();
+    const hint = document.createElement('div');
+    hint.id = 'hint';
+    hint.textContent = 'Tapnij w serduszko!';
+    gameEl.appendChild(hint);
+
+    // spawn initial hearts with stagger
+    for (let i = 0; i < MAX_HEARTS; i++) {
+      setTimeout(() => spawnHeart(), i * 500);
+    }
+    gameLoop();
+  }
+
+  function resetGame() {
+    document.querySelectorAll('.heart').forEach(h => h.remove());
+    if (animFrameId) cancelAnimationFrame(animFrameId);
+    gameRunning = false;
+    startGame();
+  }
+
+  function spawnHeart() {
+    if (!gameRunning) return;
+
+    const h = document.createElement('div');
+    h.className = 'heart';
+    h.textContent = HEART_EMOJIS[Math.floor(Math.random() * HEART_EMOJIS.length)];
+
+    const w = window.innerWidth;
+    const hh = window.innerHeight;
+    const margin = 40;
+    const topMargin = 80; // avoid score display
+
+    const data = {
+      el: h,
+      x: margin + Math.random() * (w - margin * 2 - 70),
+      y: topMargin + Math.random() * (hh - topMargin - margin - 70),
+      vx: (Math.random() - 0.5) * 3,
+      vy: (Math.random() - 0.5) * 3,
+      baseSpeed: 1.2 + Math.random() * 1.5,
+      changeDir: 0,
+      changeDirInterval: 50 + Math.random() * 70,
+      fleeVx: 0,
+      fleeVy: 0,
+      fleeFade: 0, // how much flee force remains (0-1)
+      caught: false,
+    };
+
+    h.style.left = data.x + 'px';
+    h.style.top = data.y + 'px';
+
+    // catch handler — touchstart is fastest on iOS
+    const onTouch = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!data.caught) {
+        data.caught = true;
+        catchHeart(data);
+      }
+    };
+    h.addEventListener('touchstart', onTouch, { passive: false });
+    h.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      if (!data.caught) {
+        data.caught = true;
+        catchHeart(data);
+      }
+    });
+
+    gameEl.appendChild(h);
+    hearts.push(data);
+  }
+
+  function gameLoop() {
+    if (!gameRunning) return;
+
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const now = Date.now();
+    const tapAge = now - lastTapTime; // ms since last tap
+    const margin = 10;
+    const topMargin = 60;
+
+    hearts.forEach(heart => {
+      if (heart.caught) return;
+
+      // --- FLEE FROM RECENT TAPS ---
+      // Only react to taps within last 600ms
+      if (tapAge < 600) {
+        const dx = heart.x + 35 - lastTapX;
+        const dy = heart.y + 35 - lastTapY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        // flee if tap was within 180px
+        if (dist < 180 && dist > 0) {
+          const fleeStrength = (1 - tapAge / 600) * 3.5; // stronger when tap is fresh
+          const angle = Math.atan2(dy, dx);
+          heart.fleeVx = Math.cos(angle) * heart.baseSpeed * fleeStrength;
+          heart.fleeVy = Math.sin(angle) * heart.baseSpeed * fleeStrength;
+          heart.fleeFade = 1.0;
+
+          // visual feedback: heart "dodges"
+          if (tapAge < 100 && dist < 130) {
+            heart.el.classList.remove('heart-dodge');
+            void heart.el.offsetWidth; // force reflow to restart animation
+            heart.el.classList.add('heart-dodge');
+          }
+        }
+      }
+
+      // decay flee force
+      if (heart.fleeFade > 0) {
+        heart.fleeFade *= 0.96;
+        if (heart.fleeFade < 0.01) heart.fleeFade = 0;
+      }
+
+      // --- RANDOM WANDERING ---
+      heart.changeDir++;
+      if (heart.changeDir > heart.changeDirInterval) {
+        heart.changeDir = 0;
+        heart.changeDirInterval = 50 + Math.random() * 70;
+        const angle = Math.random() * Math.PI * 2;
+        heart.vx = Math.cos(angle) * heart.baseSpeed;
+        heart.vy = Math.sin(angle) * heart.baseSpeed;
+      }
+
+      // combine wander + flee
+      const moveX = heart.vx + heart.fleeVx * heart.fleeFade;
+      const moveY = heart.vy + heart.fleeVy * heart.fleeFade;
+
+      heart.x += moveX;
+      heart.y += moveY;
+
+      // bounce off walls (with padding for the 70px heart element)
+      if (heart.x < margin)          { heart.x = margin;          heart.vx = Math.abs(heart.vx); heart.fleeVx = Math.abs(heart.fleeVx); }
+      if (heart.x > w - 70 - margin) { heart.x = w - 70 - margin; heart.vx = -Math.abs(heart.vx); heart.fleeVx = -Math.abs(heart.fleeVx); }
+      if (heart.y < topMargin)        { heart.y = topMargin;        heart.vy = Math.abs(heart.vy); heart.fleeVy = Math.abs(heart.fleeVy); }
+      if (heart.y > h - 70 - margin)  { heart.y = h - 70 - margin;  heart.vy = -Math.abs(heart.vy); heart.fleeVy = -Math.abs(heart.fleeVy); }
+
+      heart.el.style.left = heart.x + 'px';
+      heart.el.style.top = heart.y + 'px';
+
+      // faint trail
+      if (Math.random() < 0.12) {
+        const trail = document.createElement('div');
+        trail.className = 'trail';
+        trail.style.left = (heart.x + 32) + 'px';
+        trail.style.top = (heart.y + 32) + 'px';
+        gameEl.appendChild(trail);
+        setTimeout(() => trail.remove(), 500);
+      }
+    });
+
+    animFrameId = requestAnimationFrame(gameLoop);
+  }
+
+  function catchHeart(heartData) {
+    if (!gameRunning) return;
+
+    const cx = heartData.x + 35;
+    const cy = heartData.y + 35;
+
+    // particle burst
+    spawnParticles(cx, cy);
+    spawnMiniHearts(cx, cy);
+
+    // remove heart
+    heartData.el.remove();
+    hearts = hearts.filter(h => h !== heartData);
+
+    score++;
+    scoreEl.textContent = score;
+
+    // pop animation on score
+    scoreDisplay.classList.remove('score-pop');
+    void scoreDisplay.offsetWidth;
+    scoreDisplay.classList.add('score-pop');
+
+    if (score >= CATCH_GOAL) {
+      gameRunning = false;
+      cancelAnimationFrame(animFrameId);
+      hearts.forEach(h => h.el.remove());
+      hearts = [];
+      setTimeout(() => triggerExplosion(), 300);
+    } else {
+      // spawn replacement after a short delay
+      setTimeout(() => spawnHeart(), 700);
+    }
+  }
+
+  function spawnParticles(x, y) {
+    const colors = ['#ff4d6d','#ff758f','#ff8fa3','#ffccd5','#fff0f3','#ffb3c1'];
+    for (let i = 0; i < 16; i++) {
+      const p = document.createElement('div');
+      p.className = 'particle';
+      const angle = (Math.PI * 2 / 16) * i + Math.random() * 0.3;
+      const dist = 40 + Math.random() * 90;
+      p.style.setProperty('--dx', Math.cos(angle) * dist + 'px');
+      p.style.setProperty('--dy', Math.sin(angle) * dist + 'px');
+      p.style.left = x + 'px';
+      p.style.top = y + 'px';
+      p.style.background = colors[Math.floor(Math.random() * colors.length)];
+      p.style.width = p.style.height = (5 + Math.random() * 8) + 'px';
+      document.body.appendChild(p);
+      setTimeout(() => p.remove(), 800);
+    }
+  }
+
+  function spawnMiniHearts(x, y) {
+    for (let i = 0; i < 8; i++) {
+      const m = document.createElement('div');
+      m.className = 'mini-heart-particle';
+      m.textContent = HEART_EMOJIS[Math.floor(Math.random() * HEART_EMOJIS.length)];
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 50 + Math.random() * 120;
+      m.style.setProperty('--dx', Math.cos(angle) * dist + 'px');
+      m.style.setProperty('--dy', Math.sin(angle) * dist + 'px');
+      m.style.setProperty('--rot', (Math.random() * 360 - 180) + 'deg');
+      m.style.left = x + 'px';
+      m.style.top = y + 'px';
+      document.body.appendChild(m);
+      setTimeout(() => m.remove(), 1000);
+    }
+  }
+
+  function triggerExplosion() {
+    overlay.classList.add('active');
+    overlay.style.display = 'flex';
+
+    // vibrate on supported devices
+    if (navigator.vibrate) navigator.vibrate([100, 50, 200, 100, 300]);
+
+    // continuous hearts raining
+    let burstCount = 0;
+    const burstInterval = setInterval(() => {
+      for (let i = 0; i < 4; i++) {
+        const m = document.createElement('div');
+        m.className = 'mini-heart-particle';
+        m.textContent = HEART_EMOJIS[Math.floor(Math.random() * HEART_EMOJIS.length)];
+        const sx = Math.random() * window.innerWidth;
+        const sy = Math.random() * window.innerHeight;
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 40 + Math.random() * 80;
+        m.style.setProperty('--dx', Math.cos(angle) * dist + 'px');
+        m.style.setProperty('--dy', Math.sin(angle) * dist + 'px');
+        m.style.setProperty('--rot', (Math.random() * 360) + 'deg');
+        m.style.left = sx + 'px';
+        m.style.top = sy + 'px';
+        m.style.zIndex = '210';
+        m.style.fontSize = '24px';
+        document.body.appendChild(m);
+        setTimeout(() => m.remove(), 1000);
+      }
+      burstCount++;
+      if (burstCount > 30) clearInterval(burstInterval);
+    }, 180);
+  }
+</script>
+
+</body>
+</html>
