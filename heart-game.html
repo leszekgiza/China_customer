@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Zlap Serduszko!</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    overflow: hidden;
+    background: linear-gradient(135deg, #1a0a2e, #2d1b69, #1a0a2e);
+    height: 100dvh;
+    width: 100vw;
+    font-family: 'Segoe UI', sans-serif;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* floating sparkles background */
+  .sparkle {
+    position: fixed;
+    width: 4px; height: 4px;
+    background: rgba(255,255,255,0.5);
+    border-radius: 50%;
+    animation: float linear infinite;
+    pointer-events: none;
+  }
+  @keyframes float {
+    0%   { transform: translateY(100vh) scale(0); opacity: 0; }
+    10%  { opacity: 1; }
+    90%  { opacity: 1; }
+    100% { transform: translateY(-10vh) scale(1); opacity: 0; }
+  }
+
+  /* start screen */
+  #start-screen {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 100;
+    background: radial-gradient(ellipse at center, rgba(180,40,80,0.3), transparent 70%);
+  }
+  #start-screen h1 {
+    font-size: clamp(2rem, 8vw, 4rem);
+    color: #ff4d6d;
+    text-shadow: 0 0 30px rgba(255,77,109,0.6);
+    margin-bottom: 10px;
+    animation: pulse-title 2s ease-in-out infinite;
+  }
+  #start-screen p {
+    color: rgba(255,255,255,0.7);
+    font-size: clamp(0.9rem, 3vw, 1.2rem);
+    margin-bottom: 30px;
+    text-align: center;
+    padding: 0 20px;
+  }
+  #start-btn {
+    padding: 16px 48px;
+    font-size: 1.3rem;
+    background: linear-gradient(135deg, #ff4d6d, #c9184a);
+    color: #fff;
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    box-shadow: 0 0 30px rgba(255,77,109,0.5);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  #start-btn:hover { transform: scale(1.08); box-shadow: 0 0 50px rgba(255,77,109,0.7); }
+  @keyframes pulse-title {
+    0%,100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+  }
+
+  /* game area */
+  #game { display: none; position: fixed; inset: 0; }
+
+  /* score */
+  #score-display {
+    position: fixed; top: 16px; left: 50%;
+    transform: translateX(-50%);
+    color: #fff; font-size: 1.2rem;
+    background: rgba(0,0,0,0.35);
+    padding: 8px 20px; border-radius: 30px;
+    z-index: 50;
+    backdrop-filter: blur(6px);
+  }
+
+  /* small running hearts */
+  .heart {
+    position: absolute;
+    font-size: clamp(28px, 8vw, 44px);
+    cursor: pointer;
+    z-index: 10;
+    transition: none;
+    filter: drop-shadow(0 0 8px rgba(255,77,109,0.6));
+    animation: wobble 0.6s ease-in-out infinite alternate;
+  }
+  @keyframes wobble {
+    0%   { transform: rotate(-8deg) scale(1); }
+    100% { transform: rotate(8deg) scale(1.1); }
+  }
+
+  /* big explosion heart overlay */
+  #explosion-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    z-index: 200;
+    align-items: center; justify-content: center;
+    flex-direction: column;
+    background: rgba(0,0,0,0.0);
+  }
+  #explosion-overlay.active {
+    display: flex;
+    animation: overlay-bg 2.5s ease forwards;
+  }
+  @keyframes overlay-bg {
+    0%   { background: rgba(0,0,0,0); }
+    30%  { background: rgba(60,0,20,0.7); }
+    100% { background: rgba(60,0,20,0.85); }
+  }
+
+  .big-heart {
+    font-size: 20px;
+    opacity: 0;
+    animation: explode-heart 1.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    filter: drop-shadow(0 0 60px rgba(255,0,60,0.9));
+  }
+  @keyframes explode-heart {
+    0%   { font-size: 20px; opacity: 0; transform: scale(0.1) rotate(-10deg); }
+    15%  { opacity: 1; }
+    50%  { font-size: clamp(150px, 50vw, 350px); transform: scale(1.15) rotate(5deg); }
+    70%  { transform: scale(0.95) rotate(-3deg); }
+    100% { font-size: clamp(150px, 50vw, 350px); transform: scale(1) rotate(0deg); opacity: 1; }
+  }
+
+  .congrats-text {
+    color: #fff;
+    font-size: clamp(1.2rem, 5vw, 2rem);
+    margin-top: 20px;
+    opacity: 0;
+    animation: fade-up 1s ease 1.2s forwards;
+    text-align: center;
+    padding: 0 20px;
+    text-shadow: 0 0 20px rgba(255,77,109,0.8);
+  }
+  @keyframes fade-up {
+    0%   { opacity: 0; transform: translateY(20px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+
+  .play-again-btn {
+    margin-top: 24px;
+    padding: 14px 40px;
+    font-size: 1.1rem;
+    background: linear-gradient(135deg, #ff4d6d, #c9184a);
+    color: #fff;
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    opacity: 0;
+    animation: fade-up 0.8s ease 2s forwards;
+    box-shadow: 0 0 30px rgba(255,77,109,0.4);
+  }
+  .play-again-btn:hover { transform: scale(1.06); }
+
+  /* particle burst on catch */
+  .particle {
+    position: fixed;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 150;
+    animation: burst 0.8s ease-out forwards;
+  }
+  @keyframes burst {
+    0%   { opacity: 1; transform: translate(0,0) scale(1); }
+    100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0); }
+  }
+
+  /* mini hearts burst */
+  .mini-heart-particle {
+    position: fixed;
+    pointer-events: none;
+    z-index: 150;
+    font-size: 18px;
+    animation: mini-burst 1s ease-out forwards;
+  }
+  @keyframes mini-burst {
+    0%   { opacity: 1; transform: translate(0,0) scale(1) rotate(0deg); }
+    100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.3) rotate(var(--rot)); }
+  }
+
+  /* trail particle */
+  .trail {
+    position: absolute;
+    width: 6px; height: 6px;
+    background: rgba(255,77,109,0.5);
+    border-radius: 50%;
+    pointer-events: none;
+    animation: trail-fade 0.5s ease-out forwards;
+  }
+  @keyframes trail-fade {
+    0%   { opacity: 0.6; transform: scale(1); }
+    100% { opacity: 0; transform: scale(0); }
+  }
+</style>
+</head>
+<body>
+
+<!-- Background sparkles -->
+<script>
+  for (let i = 0; i < 30; i++) {
+    const s = document.createElement('div');
+    s.className = 'sparkle';
+    s.style.left = Math.random() * 100 + 'vw';
+    s.style.animationDuration = (4 + Math.random() * 6) + 's';
+    s.style.animationDelay = (Math.random() * 8) + 's';
+    s.style.width = s.style.height = (2 + Math.random() * 4) + 'px';
+    document.body.appendChild(s);
+  }
+</script>
+
+<!-- Start screen -->
+<div id="start-screen">
+  <h1>Zlap Serduszko!</h1>
+  <p>Dotknij uciekajace serduszka, zeby je zlapac.<br>Zlapiesz 5 i zobaczysz cos wyjatkowego!</p>
+  <button id="start-btn">Graj!</button>
+</div>
+
+<!-- Game -->
+<div id="game">
+  <div id="score-display">Zlapane: <span id="score">0</span> / 5</div>
+</div>
+
+<!-- Explosion overlay -->
+<div id="explosion-overlay">
+  <div class="big-heart">&#10084;&#65039;</div>
+  <div class="congrats-text">Brawo! Zlapales wszystkie serduszka!<br>Jestes niesamowity/a!</div>
+  <button class="play-again-btn" onclick="resetGame()">Zagraj jeszcze raz</button>
+</div>
+
+<script>
+  const CATCH_GOAL = 5;
+  const MAX_HEARTS = 3;
+  const HEART_EMOJIS = ['\u2764\uFE0F', '\uD83E\uDE77', '\uD83D\uDC95', '\uD83D\uDC96', '\uD83D\uDC97', '\uD83D\uDC93'];
+
+  let score = 0;
+  let hearts = [];
+  let animFrameId;
+  let gameRunning = false;
+
+  const startScreen = document.getElementById('start-screen');
+  const gameEl = document.getElementById('game');
+  const scoreEl = document.getElementById('score');
+  const overlay = document.getElementById('explosion-overlay');
+
+  document.getElementById('start-btn').addEventListener('click', startGame);
+
+  function startGame() {
+    startScreen.style.display = 'none';
+    gameEl.style.display = 'block';
+    overlay.classList.remove('active');
+    overlay.style.display = 'none';
+    score = 0;
+    scoreEl.textContent = '0';
+    gameRunning = true;
+    hearts = [];
+
+    // spawn initial hearts
+    for (let i = 0; i < MAX_HEARTS; i++) {
+      setTimeout(() => spawnHeart(), i * 400);
+    }
+    gameLoop();
+  }
+
+  function resetGame() {
+    // clean up old hearts
+    document.querySelectorAll('.heart').forEach(h => h.remove());
+    if (animFrameId) cancelAnimationFrame(animFrameId);
+    startGame();
+  }
+
+  function spawnHeart() {
+    if (!gameRunning) return;
+
+    const h = document.createElement('div');
+    h.className = 'heart';
+    h.textContent = HEART_EMOJIS[Math.floor(Math.random() * HEART_EMOJIS.length)];
+
+    const w = window.innerWidth;
+    const hh = window.innerHeight;
+
+    const data = {
+      el: h,
+      x: Math.random() * (w - 60) + 10,
+      y: Math.random() * (hh - 120) + 60,
+      vx: (Math.random() - 0.5) * 4,
+      vy: (Math.random() - 0.5) * 4,
+      speed: 1.5 + Math.random() * 2,
+      changeDir: 0,
+      fleeing: false,
+      fleeTimer: 0,
+    };
+
+    h.style.left = data.x + 'px';
+    h.style.top = data.y + 'px';
+
+    // catch handler
+    const catchHandler = (e) => {
+      e.preventDefault();
+      catchHeart(data);
+    };
+    h.addEventListener('pointerdown', catchHandler);
+
+    gameEl.appendChild(h);
+    hearts.push(data);
+  }
+
+  // track pointer for fleeing behaviour
+  let pointerX = -1000, pointerY = -1000;
+  document.addEventListener('pointermove', (e) => {
+    pointerX = e.clientX;
+    pointerY = e.clientY;
+  });
+  document.addEventListener('touchmove', (e) => {
+    pointerX = e.touches[0].clientX;
+    pointerY = e.touches[0].clientY;
+  }, { passive: true });
+
+  function gameLoop() {
+    if (!gameRunning) return;
+
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+
+    hearts.forEach(heart => {
+      // distance to pointer
+      const dx = heart.x - pointerX;
+      const dy = heart.y - pointerY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      // flee when pointer is close
+      if (dist < 150) {
+        heart.fleeing = true;
+        heart.fleeTimer = 30;
+        const angle = Math.atan2(dy, dx);
+        heart.vx = Math.cos(angle) * heart.speed * 2.5;
+        heart.vy = Math.sin(angle) * heart.speed * 2.5;
+      }
+
+      if (heart.fleeTimer > 0) {
+        heart.fleeTimer--;
+      } else {
+        heart.fleeing = false;
+      }
+
+      // random direction changes
+      heart.changeDir++;
+      if (!heart.fleeing && heart.changeDir > 40 + Math.random() * 60) {
+        heart.changeDir = 0;
+        const angle = Math.random() * Math.PI * 2;
+        heart.vx = Math.cos(angle) * heart.speed;
+        heart.vy = Math.sin(angle) * heart.speed;
+      }
+
+      // move
+      heart.x += heart.vx;
+      heart.y += heart.vy;
+
+      // bounce off walls
+      if (heart.x < 10)      { heart.x = 10;      heart.vx = Math.abs(heart.vx); }
+      if (heart.x > w - 50)  { heart.x = w - 50;  heart.vx = -Math.abs(heart.vx); }
+      if (heart.y < 50)      { heart.y = 50;       heart.vy = Math.abs(heart.vy); }
+      if (heart.y > h - 60)  { heart.y = h - 60;   heart.vy = -Math.abs(heart.vy); }
+
+      heart.el.style.left = heart.x + 'px';
+      heart.el.style.top = heart.y + 'px';
+
+      // leave a faint trail
+      if (Math.random() < 0.15) {
+        const trail = document.createElement('div');
+        trail.className = 'trail';
+        trail.style.left = (heart.x + 15) + 'px';
+        trail.style.top = (heart.y + 15) + 'px';
+        gameEl.appendChild(trail);
+        setTimeout(() => trail.remove(), 500);
+      }
+    });
+
+    animFrameId = requestAnimationFrame(gameLoop);
+  }
+
+  function catchHeart(heartData) {
+    if (!gameRunning) return;
+
+    const cx = heartData.x + 20;
+    const cy = heartData.y + 20;
+
+    // particle burst
+    spawnParticles(cx, cy);
+    spawnMiniHearts(cx, cy);
+
+    // remove heart
+    heartData.el.remove();
+    hearts = hearts.filter(h => h !== heartData);
+
+    score++;
+    scoreEl.textContent = score;
+
+    if (score >= CATCH_GOAL) {
+      gameRunning = false;
+      cancelAnimationFrame(animFrameId);
+      // remove remaining hearts
+      hearts.forEach(h => h.el.remove());
+      hearts = [];
+
+      // trigger explosion
+      setTimeout(() => triggerExplosion(cx, cy), 300);
+    } else {
+      // spawn a new one
+      setTimeout(() => spawnHeart(), 600);
+    }
+  }
+
+  function spawnParticles(x, y) {
+    const colors = ['#ff4d6d','#ff758f','#ff8fa3','#ffccd5','#fff0f3','#ffb3c1'];
+    for (let i = 0; i < 14; i++) {
+      const p = document.createElement('div');
+      p.className = 'particle';
+      const angle = (Math.PI * 2 / 14) * i + Math.random() * 0.4;
+      const dist = 40 + Math.random() * 80;
+      p.style.setProperty('--dx', Math.cos(angle) * dist + 'px');
+      p.style.setProperty('--dy', Math.sin(angle) * dist + 'px');
+      p.style.left = x + 'px';
+      p.style.top = y + 'px';
+      p.style.background = colors[Math.floor(Math.random() * colors.length)];
+      p.style.width = p.style.height = (4 + Math.random() * 8) + 'px';
+      document.body.appendChild(p);
+      setTimeout(() => p.remove(), 800);
+    }
+  }
+
+  function spawnMiniHearts(x, y) {
+    for (let i = 0; i < 6; i++) {
+      const m = document.createElement('div');
+      m.className = 'mini-heart-particle';
+      m.textContent = HEART_EMOJIS[Math.floor(Math.random() * HEART_EMOJIS.length)];
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 50 + Math.random() * 100;
+      m.style.setProperty('--dx', Math.cos(angle) * dist + 'px');
+      m.style.setProperty('--dy', Math.sin(angle) * dist + 'px');
+      m.style.setProperty('--rot', (Math.random() * 360 - 180) + 'deg');
+      m.style.left = x + 'px';
+      m.style.top = y + 'px';
+      document.body.appendChild(m);
+      setTimeout(() => m.remove(), 1000);
+    }
+  }
+
+  function triggerExplosion() {
+    overlay.classList.add('active');
+    overlay.style.display = 'flex';
+
+    // vibrate on mobile if supported
+    if (navigator.vibrate) navigator.vibrate([100, 50, 200]);
+
+    // continuous mini hearts raining in background
+    let burstCount = 0;
+    const burstInterval = setInterval(() => {
+      for (let i = 0; i < 3; i++) {
+        const m = document.createElement('div');
+        m.className = 'mini-heart-particle';
+        m.textContent = HEART_EMOJIS[Math.floor(Math.random() * HEART_EMOJIS.length)];
+        const sx = Math.random() * window.innerWidth;
+        const sy = Math.random() * window.innerHeight;
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 30 + Math.random() * 60;
+        m.style.setProperty('--dx', Math.cos(angle) * dist + 'px');
+        m.style.setProperty('--dy', Math.sin(angle) * dist + 'px');
+        m.style.setProperty('--rot', (Math.random() * 360) + 'deg');
+        m.style.left = sx + 'px';
+        m.style.top = sy + 'px';
+        m.style.zIndex = '210';
+        document.body.appendChild(m);
+        setTimeout(() => m.remove(), 1000);
+      }
+      burstCount++;
+      if (burstCount > 25) clearInterval(burstInterval);
+    }, 200);
+  }
+</script>
+
+</body>
+</html>
